@@ -3,6 +3,7 @@ import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import Layout from './components/shared/Layout';
 import Dashboard from './pages/Dashboard';
 import Payments from './pages/Payments';
+import AdminPayments from './pages/AdminPayments';
 import Announcements from './pages/Announcements';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
@@ -79,6 +80,16 @@ function App() {
                 <ProtectedRoute>
                   <AdminRoute>
                     <ManageUsers />
+                  </AdminRoute>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/payments"
+              element={
+                <ProtectedRoute>
+                  <AdminRoute>
+                    <AdminPayments />
                   </AdminRoute>
                 </ProtectedRoute>
               }

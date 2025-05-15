@@ -23,12 +23,9 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'Email already exists' });
     }
 
-    // Hash password manually (optional if your model hooks work correctly)
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     const user = await User.create({
       email,
-      password: hashedPassword,
+      password,
       firstName,
       lastName,
       address,

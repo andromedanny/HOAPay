@@ -42,15 +42,17 @@ export default function Dashboard() {
                     Payment Portal
                   </Typography>
                   <Typography sx={{ mb: 3 }}>
-                    Make payments, and check payment history.
+                    {role === 'admin' 
+                      ? 'Manage and review all community payments.'
+                      : 'Make payments, and check payment history.'}
                   </Typography>
                   <Button
                     component={Link}
-                    to="/payments"
+                    to={role === 'admin' ? '/admin/payments' : '/payments'}
                     variant="contained"
                     sx={{ mt: 'auto', alignSelf: 'flex-start' }}
                   >
-                    Go to Payments
+                    {role === 'admin' ? 'Manage Payments' : 'Go to Payments'}
                   </Button>
                 </Paper>
               </Grid>
@@ -113,7 +115,7 @@ export default function Dashboard() {
                 </Paper>
               </Grid>
 
-              {/* ✅ Admin Panel */}
+              {/* Manage Users Card (Admin Only) */}
               {role === 'admin' && (
                 <Grid item xs={12}>
                   <Paper
@@ -127,18 +129,18 @@ export default function Dashboard() {
                     }}
                   >
                     <Typography variant="h5" gutterBottom>
-                      Admin Panel
+                      Manage Users
                     </Typography>
                     <Typography>
-                      Manage users, announcements, and payments.
+                      Add, edit, or remove community members and manage their access.
                     </Typography>
                     <Button
                       component={Link}
-                      to="/admin"
+                      to="/admin/users"
                       variant="contained"
-                      sx={{ mt: 2, alignSelf: 'flex-start' }}
+                      sx={{ mt: 'auto', alignSelf: 'flex-start' }}
                     >
-                      Go to Admin
+                      Manage Users
                     </Button>
                   </Paper>
                 </Grid>

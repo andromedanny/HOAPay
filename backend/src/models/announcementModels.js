@@ -15,17 +15,22 @@ const Announcement = sequelize.define('Announcement', {
     type: DataTypes.TEXT,
     allowNull: false
   },
-  isImportant: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false
+  priority: {
+    type: DataTypes.ENUM('low', 'normal', 'high'),
+    defaultValue: 'normal'
   },
-  expiresAt: {
-    type: DataTypes.DATE
+  createdBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   }
 }, {
   timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  tableName: 'announcements',
+  underscored: true // This will make Sequelize use snake_case for column names
 });
 
 export default Announcement;

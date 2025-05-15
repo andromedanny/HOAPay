@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -11,20 +11,25 @@ import {
   InputLabel,
   Select,
   Typography,
-  Grid
+  Box,
+  Alert
 } from '@mui/material';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 import api from '../../services/api';
 
 export default function PaymentForm({ onClose, onSuccess }) {
   const [formData, setFormData] = useState({
     amount: '',
     paymentMethod: 'gcash',
-    billingPeriod: '',
-    memo: ''
+    paymentType: 'monthly_dues',
+    dueDate: null
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const paymentMethods = [
     { value: 'gcash', label: 'GCash' },
@@ -34,10 +39,10 @@ export default function PaymentForm({ onClose, onSuccess }) {
     { value: 'bank_transfer', label: 'Bank Transfer' }
   ];
 
-  const billingPeriods = [
-    { value: '2023-10', label: 'October 2023' },
-    { value: '2023-11', label: 'November 2023' },
-    { value: '2023-12', label: 'December 2023' }
+  const paymentTypes = [
+    { value: 'monthly_dues', label: 'Monthly Dues', defaultAmount: 500 },
+    { value: 'sticker', label: 'Vehicle Sticker', defaultAmount: 100 },
+    { value: 'other', label: 'Other', defaultAmount: 0 }
   ];
 
   const validate = () => {
@@ -45,8 +50,8 @@ export default function PaymentForm({ onClose, onSuccess }) {
     if (!formData.amount || isNaN(formData.amount)) {
       newErrors.amount = 'Please enter a valid amount';
     }
-    if (!formData.billingPeriod) {
-      newErrors.billingPeriod = 'Please select a billing period';
+    if (!formData.dueDate) {
+      newErrors.dueDate = 'Please select a due date';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -57,15 +62,30 @@ export default function PaymentForm({ onClose, onSuccess }) {
     if (!validate()) return;
 
     setIsSubmitting(true);
+    setSubmitError('');
+
     try {
-      await api.post('/payments', {
-        ...formData,
-        amount: parseFloat(formData.amount)
-      });
-      onSuccess();
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const paymentData = {
+        amount: parseFloat(formData.amount),
+        payment_method: formData.paymentMethod,
+        payment_plan: formData.paymentType,
+        due_date: formData.dueDate ? formData.dueDate.format('YYYY-MM-DD') : null
+      };
+
+      console.log('Submitting payment:', paymentData);
+      const response = await api.post('/payments', paymentData);
+      console.log('Payment response:', response.data);
+
+      onSuccess('Payment submitted successfully!');
       onClose();
     } catch (err) {
       console.error('Payment submission failed:', err);
+      setSubmitError(err.response?.data?.error || 'Failed to submit payment. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -73,95 +93,142 @@ export default function PaymentForm({ onClose, onSuccess }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name === 'paymentType') {
+      const selectedType = paymentTypes.find(type => type.value === value);
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        amount: selectedType.defaultAmount.toString()
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   return (
-    <Dialog open={true} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Make Payment</DialogTitle>
+    <Dialog 
+      open={true} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          maxWidth: '450px'
+        }
+      }}
+    >
+      <DialogTitle 
+        sx={{ 
+          textAlign: 'center',
+          borderBottom: '1px solid #e0e0e0',
+          pb: 2,
+          backgroundColor: 'primary.main',
+          color: 'white'
+        }}
+      >
+        Make Payment
+      </DialogTitle>
       <form onSubmit={handleSubmit}>
-        <DialogContent dividers>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                margin="normal"
-                label="Amount"
-                name="amount"
-                type="number"
-                value={formData.amount}
+        <DialogContent 
+          sx={{ 
+            py: 3,
+            px: 3
+          }}
+        >
+          {submitError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {submitError}
+            </Alert>
+          )}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <FormControl fullWidth>
+              <InputLabel>Payment Type</InputLabel>
+              <Select
+                name="paymentType"
+                value={formData.paymentType}
                 onChange={handleChange}
-                error={!!errors.amount}
-                helperText={errors.amount}
-                InputProps={{
-                  startAdornment: <Typography>₱</Typography>,
+                label="Payment Type"
+              >
+                {paymentTypes.map(type => (
+                  <MenuItem key={type.value} value={type.value}>
+                    {type.label} - ₱{type.defaultAmount}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              fullWidth
+              label="Amount"
+              name="amount"
+              type="number"
+              value={formData.amount}
+              onChange={handleChange}
+              error={!!errors.amount}
+              helperText={errors.amount}
+              InputProps={{
+                startAdornment: <Typography>₱</Typography>
+              }}
+            />
+
+            <FormControl fullWidth>
+              <InputLabel>Payment Method</InputLabel>
+              <Select
+                name="paymentMethod"
+                value={formData.paymentMethod}
+                onChange={handleChange}
+                label="Payment Method"
+              >
+                {paymentMethods.map(method => (
+                  <MenuItem key={method.value} value={method.value}>
+                    {method.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DatePicker
+                label="Due Date"
+                value={formData.dueDate}
+                onChange={(newValue) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    dueDate: newValue ? newValue : null
+                  }));
                 }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Payment Method</InputLabel>
-                <Select
-                  name="paymentMethod"
-                  value={formData.paymentMethod}
-                  onChange={handleChange}
-                  label="Payment Method"
-                >
-                  {paymentMethods.map(method => (
-                    <MenuItem key={method.value} value={method.value}>
-                      {method.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth margin="normal">
-                <InputLabel>Billing Period</InputLabel>
-                <Select
-                  name="billingPeriod"
-                  value={formData.billingPeriod}
-                  onChange={handleChange}
-                  label="Billing Period"
-                  error={!!errors.billingPeriod}
-                >
-                  {billingPeriods.map(period => (
-                    <MenuItem key={period.value} value={period.value}>
-                      {period.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {errors.billingPeriod && (
-                  <Typography color="error" variant="caption">
-                    {errors.billingPeriod}
-                  </Typography>
+                renderInput={(params) => (
+                  <TextField {...params} fullWidth error={!!errors.dueDate} helperText={errors.dueDate} />
                 )}
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                margin="normal"
-                label="Memo (Optional)"
-                name="memo"
-                multiline
-                rows={3}
-                value={formData.memo}
-                onChange={handleChange}
               />
-            </Grid>
-          </Grid>
+            </LocalizationProvider>
+          </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose}>Cancel</Button>
+
+        <DialogActions 
+          sx={{ 
+            px: 3,
+            py: 2,
+            borderTop: '1px solid #e0e0e0',
+            gap: 1
+          }}
+        >
           <Button 
-            type="submit" 
-            variant="contained" 
-            color="primary"
+            onClick={onClose}
+            variant="outlined"
+            sx={{ flex: 1 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
             disabled={isSubmitting}
+            sx={{ flex: 1 }}
           >
             {isSubmitting ? 'Processing...' : 'Submit Payment'}
           </Button>
